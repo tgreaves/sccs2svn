@@ -34,6 +34,12 @@
 
     Version .2 --- only replace the project name once.
 
+    Further changes by tristan@extricate.org:
+
+    *   Print file that is _about_ to be processed (to help pinpoint errors).
+    *   Set svn --fs-type to bdb  (to avoid 'Too many open files' error)
+    *   Use os.walk instead of deprecated os.path.walk (symlinks were being followed)
+
 
     The project's homepage is http://sccs2svn.berlios.de
 
@@ -214,6 +220,7 @@ class SVNInterface:
             # Add all of the directories first, or we will be trying
             # to cross transactions, which is bad.
             for delta in new_deltas:
+                print "New delta: ", delta.getRepositoryName()
                 self._addDirectories(delta)
 
             subpool = core.svn_pool_create(self.pool)
@@ -372,12 +379,14 @@ def visitSCCSRepository(interface,dirname,names):
                 filename = os.path.join(dirname, i)
                 parseSCCSLog(filename)
 
-
 def run(pool):
 
     SCCSDelta.rootDirectory = options.sccs_repository
     interface = SVNInterface(options.svn_repository, pool)
-    os.path.walk(SCCSDelta.rootDirectory, visitSCCSRepository, interface)
+
+    for dirpath, dirnames, filenames in os.walk(SCCSDelta.rootDirectory):
+        visitSCCSRepository(interface, dirpath, filenames)
+
     versions.sort(deltaSort)
 
     print "Read",
@@ -456,7 +465,7 @@ if __name__ == '__main__':
         print "Exiting."
         sys.exit(1)
         
-    svnadminResult = os.system("svnadmin create " + options.svn_repository)
+    svnadminResult = os.system("svnadmin create --fs-type bdb " + options.svn_repository)
     if svnadminResult != 0:
         print "svnadmin returned %s instead of 0" % svnadminResult
         sys.exit(2)
